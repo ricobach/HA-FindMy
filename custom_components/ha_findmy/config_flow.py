@@ -47,7 +47,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> "HAFindMyOptionsFlow":
         """Return the options flow for accessory management."""
-        return HAFindMyOptionsFlow(config_entry)
+        return HAFindMyOptionsFlow()
 
     async def async_step_user(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Collect Apple ID credentials and sign in."""
@@ -283,16 +283,12 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class HAFindMyOptionsFlow(config_entries.OptionsFlow):
     """Add or remove Find My accessories on an existing config entry."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+    def __init__(self) -> None:
         self._account: AsyncAppleAccount | None = None
         self._client: AsyncFindMyClient | None = None
         self._recovery_records: list[Any] = []
         self._selected_recovery_record: Any | None = None
         self._accessories: list[Any] = []
-        self._current_accessory_rows: list[dict[str, Any]] = [
-            dict(item) for item in config_entry.data.get(CONF_ACCESSORIES, [])
-        ]
 
     async def _async_close(self) -> None:
         """Close temporary Apple/iCloud objects used by the options flow."""
@@ -311,6 +307,9 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Restore the saved Apple session and rediscover accessories."""
+        self._current_accessory_rows: list[dict[str, Any]] = [
+            dict(item) for item in self.config_entry.data.get(CONF_ACCESSORIES, [])
+        ]
         try:
             account_data = dict(self.config_entry.data[CONF_ACCOUNT])
             self._account = await self.hass.async_add_executor_job(
