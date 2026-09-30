@@ -1,5 +1,10 @@
 # HA-FindMy
 
+[![HACS Validation](https://github.com/ricobach/HA-FindMy/actions/workflows/hacs.yml/badge.svg)](https://github.com/ricobach/HA-FindMy/actions/workflows/hacs.yml)
+[![hassfest](https://github.com/ricobach/HA-FindMy/actions/workflows/hassfest.yml/badge.svg)](https://github.com/ricobach/HA-FindMy/actions/workflows/hassfest.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
+
+
 A Home Assistant custom integration for Apple Find My accessories.
 
 This project intentionally starts small: authenticate to Apple with **local Anisette**, recover
@@ -98,3 +103,10 @@ The Apple protocol work is provided by FindMy.py and the iCloud accessory extrac
 parawanderer FindMy.py fork / OpenTagViewer ecosystem.
 
 This project is not affiliated with or endorsed by Apple.
+
+
+## Development and validation
+
+This repository is structured as a HACS custom integration and is continuously checked with the official HACS validation action and Home Assistant hassfest. Pull requests and pushes run both validators, and scheduled runs catch changes in HACS/Home Assistant requirements.
+
+Releases should use the same semantic version as `custom_components/ha_findmy/manifest.json`. The repository includes a manual release workflow that creates a GitHub release from the version in the manifest.

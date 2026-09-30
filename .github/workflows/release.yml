@@ -1,0 +1,39 @@
+name: Create release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v prefix (for example 0.4.2)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify manifest version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          MANIFEST_VERSION="$(python -c 'import json; print(json.load(open("custom_components/ha_findmy/manifest.json"))["version"])')"
+          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
+            echo "Manifest version $MANIFEST_VERSION does not match requested release $VERSION"
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --target "${{ github.sha }}" \
+            --title "HA-FindMy v$VERSION" \
+            --generate-notes

@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a problem with HA-FindMy
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve HA-FindMy. Please remove secrets, Apple IDs, passcodes, private key material, and session data from logs.
+  - type: input
+    id: version
+    attributes:
+      label: HA-FindMy version
+      placeholder: "0.4.2"
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.x.x"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact credentials, account/session data, passcodes, private keys and identifying location data.
+      render: text
