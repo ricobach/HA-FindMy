@@ -45,13 +45,6 @@ def latest_status(
     return report.status
 
 
-BATTERY_LABELS = {
-    0b00: "ok",
-    0b01: "medium",
-    0b10: "low",
-    0b11: "critical",
-}
-
 # AirTags report four battery bands, not a real percentage. These are intentionally
 # approximate midpoints so HA can render a battery gauge without pretending precision.
 BATTERY_PERCENTS = {
@@ -66,11 +59,6 @@ def battery_bits(status: int | None) -> int | None:
     if status is None:
         return None
     return (status >> 6) & 0b11
-
-
-def battery_label(status: int | None) -> str | None:
-    bits = battery_bits(status)
-    return BATTERY_LABELS.get(bits) if bits is not None else None
 
 
 def battery_percent(status: int | None) -> int | None:

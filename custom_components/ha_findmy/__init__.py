@@ -7,10 +7,11 @@ import logging
 from findmy import AsyncAppleAccount, FindMyAccessory
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN, PLATFORMS
 from .bermuda_bridge import async_register_accessories_with_bermuda
-from .coordinator import HAFindMyCoordinator
+from .coordinator import HAFindMyCoordinator, accessory_id
 from .runtime import HAFindMyRuntime
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,12 +29,36 @@ async def _restore_accessories(hass: HomeAssistant, rows: list[dict]) -> list[Fi
     )
 
 
+def _remove_retired_battery_entities(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    accessories: list[FindMyAccessory],
+) -> None:
+    """Remove battery entities retired in v0.3.1 from the entity registry."""
+    registry = er.async_get(hass)
+    for accessory in accessories:
+        identifier = accessory_id(accessory)
+        for platform, suffix in (
+            ("sensor", "battery_level"),
+            ("binary_sensor", "battery_low"),
+        ):
+            entity_id = registry.async_get_entity_id(
+                platform,
+                DOMAIN,
+                f"{identifier}_{suffix}",
+            )
+            if entity_id is not None:
+                registry.async_remove(entity_id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HA-FindMy from a config entry."""
     account = await _restore_account(hass, dict(entry.data[CONF_ACCOUNT]))
     accessories = await _restore_accessories(
         hass, [dict(item) for item in entry.data[CONF_ACCESSORIES]]
     )
+
+    _remove_retired_battery_entities(hass, entry, accessories)
 
     coordinator = HAFindMyCoordinator(hass, entry, account, accessories)
     await coordinator.async_config_entry_first_refresh()

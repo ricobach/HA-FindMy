@@ -21,7 +21,7 @@ Implemented in the first slice:
 - Remote Find My location polling every 15 minutes.
 - One Home Assistant `device_tracker` entity per selected accessory.
 - Latitude, longitude and last Find My report timestamp sensors.
-- AirTag battery band plus an approximate battery percentage and battery-low binary sensor.
+- AirTag battery sensor shown as an approximate percentage derived from Apple's four battery bands.
 - Local Bluetooth matching using Home Assistant Bluetooth adapters and ESPHome Bluetooth proxies.
 - Bluetooth presence and RSSI entities, including the proxy/source that most recently saw the tag.
 - Optional Bermuda BLE Trilateration bridge: selected AirTags are registered as stable Bermuda devices and rotating BLE addresses are attached automatically.

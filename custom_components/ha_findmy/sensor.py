@@ -13,7 +13,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ._entity import (
-    battery_label,
     battery_percent,
     build_device_info,
     latest_report,
@@ -35,7 +34,6 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities) -> Non
                 HAFindMyLongitudeSensor(runtime, accessory),
                 HAFindMyLastReportSensor(runtime, accessory),
                 HAFindMyBatteryPercentSensor(runtime, accessory),
-                HAFindMyBatteryLevelSensor(runtime, accessory),
                 HAFindMySignalStrengthSensor(runtime, accessory),
             ]
         )
@@ -127,13 +125,3 @@ class HAFindMyBatteryPercentSensor(_BaseSensor):
             "note": "AirTags expose four battery bands, not an exact percentage.",
         }
 
-
-class HAFindMyBatteryLevelSensor(_BaseSensor):
-    _attr_name = "Battery level"
-    _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = ["ok", "medium", "low", "critical"]
-    suffix = "battery_level"
-
-    @property
-    def native_value(self):
-        return battery_label(latest_status(self.runtime, self.accessory))
