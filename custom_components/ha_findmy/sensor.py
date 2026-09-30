@@ -8,6 +8,7 @@ from functools import cached_property
 from findmy import FindMyAccessory
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfLength
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -33,6 +34,7 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities) -> Non
                 HAFindMyLatitudeSensor(runtime, accessory),
                 HAFindMyLongitudeSensor(runtime, accessory),
                 HAFindMyLastReportSensor(runtime, accessory),
+                HAFindMyGPSAccuracySensor(runtime, accessory),
                 HAFindMyBatteryPercentSensor(runtime, accessory),
                 HAFindMySignalStrengthSensor(runtime, accessory),
             ]
@@ -94,6 +96,24 @@ class HAFindMyLongitudeSensor(_BaseSensor):
     def native_value(self):
         report = latest_report(self.coordinator, self.accessory)
         return report.longitude if report else None
+
+
+class HAFindMyGPSAccuracySensor(_BaseSensor):
+    """Horizontal accuracy radius reported by the Find My network."""
+
+    _attr_name = "GPS accuracy"
+    _attr_device_class = SensorDeviceClass.DISTANCE
+    _attr_native_unit_of_measurement = UnitOfLength.METERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+    suffix = "gps_accuracy"
+
+    @property
+    def native_value(self) -> float | None:
+        report = latest_report(self.coordinator, self.accessory)
+        if report is None or report.horizontal_accuracy is None:
+            return None
+        return float(report.horizontal_accuracy)
 
 
 class HAFindMyLastReportSensor(_BaseSensor):

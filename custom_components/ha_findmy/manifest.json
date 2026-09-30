@@ -1,7 +1,7 @@
 {
   "domain": "ha_findmy",
   "name": "HA-FindMy",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "config_flow": true,
