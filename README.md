@@ -21,6 +21,8 @@ Implemented in the first slice:
 - Remote Find My location polling every 15 minutes.
 - One Home Assistant `device_tracker` entity per selected accessory.
 - Latitude, longitude, GPS accuracy and last Find My report timestamp sensors.
+- Diagnostic `Find My report age` sensor showing report age plus the last successful Apple poll, report timestamp and confidence.
+- Diagnostic `Local BLE diagnostic` sensor showing whether rolling keys are available and whether the accessory has actually been matched locally; includes AirPods grouping metadata when Apple provides it.
 - A combined `Current location` sensor that prefers Bermuda Area, then nearest proxy, then a Home Assistant GPS zone, with Away/Unknown as fallback.
 - AirTag battery sensor shown as an approximate percentage derived from Apple's four battery bands.
 - Local Bluetooth matching using Home Assistant Bluetooth adapters and ESPHome Bluetooth proxies.
@@ -33,6 +35,7 @@ Not implemented yet:
 - Re-authentication flow when Apple expires a session.
 - Adding/removing accessories after initial setup without re-running setup.
 - Persisting recovered keychain keys to avoid the passcode on a future discovery run.
+- Model-specific AirPods behaviour is still being validated; the generic Find My accessory and BLE diagnostics are intended to show whether a given case/bud can use the existing Bermuda path.
 
 ## Bermuda BLE Trilateration integration
 

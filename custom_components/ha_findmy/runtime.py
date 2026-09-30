@@ -24,3 +24,4 @@ class HAFindMyRuntime:
     local_observations: dict[str, tuple[LocalObservation, str | None]] = field(default_factory=dict)
     local_status: dict[str, tuple[int, datetime]] = field(default_factory=dict)
     local_rssi: dict[str, int | None] = field(default_factory=dict)
+    local_key_candidates: dict[str, int] = field(default_factory=dict)

@@ -120,6 +120,7 @@ class HAFindMyTracker(CoordinatorEntity[HAFindMyCoordinator], TrackerEntity):
             "local_state": obs.state if obs else None,
             "local_mac_address": obs.mac_address if obs else None,
             "local_key_candidates": self._local_candidate_count,
+            "group_identifier": getattr(self.accessory, "group_identifier", None),
         }
 
     async def async_added_to_hass(self) -> None:
@@ -195,6 +196,7 @@ class HAFindMyTracker(CoordinatorEntity[HAFindMyCoordinator], TrackerEntity):
 
             self._local_candidates = candidates
             self._local_candidate_count = sum(len(keys) for keys in candidates.values())
+            self.runtime.local_key_candidates[self._attr_unique_id] = self._local_candidate_count
 
             # HA replays history when callbacks are registered before the key cache is ready.
             # Match the existing history once so startup does not have to wait for key rotation.

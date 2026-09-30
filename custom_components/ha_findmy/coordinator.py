@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from findmy import (
@@ -59,6 +60,7 @@ class HAFindMyCoordinator(DataUpdateCoordinator[dict[str, LocationReport | None]
         self.entry = entry
         self.account = account
         self.accessories = accessories
+        self.last_poll_at: datetime | None = None
 
     async def _async_update_data(self) -> dict[str, LocationReport | None]:
         try:
@@ -67,6 +69,8 @@ class HAFindMyCoordinator(DataUpdateCoordinator[dict[str, LocationReport | None]
             raise ConfigEntryAuthFailed("Apple account authentication is no longer valid") from err
         except Exception as err:
             raise UpdateFailed(f"Unable to fetch Find My locations: {err}") from err
+
+        self.last_poll_at = datetime.now(tz=UTC)
 
         result: dict[str, LocationReport | None] = {}
         for accessory, report in reports.items():

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import cached_property
 
 from findmy import FindMyAccessory
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.components.zone import async_active_zone
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfLength
+from homeassistant.const import EntityCategory, UnitOfLength, UnitOfTime
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -38,6 +38,8 @@ async def async_setup_entry(hass, entry: ConfigEntry, async_add_entities) -> Non
                 HAFindMyLastReportSensor(runtime, accessory),
                 HAFindMyGPSAccuracySensor(runtime, accessory),
                 HAFindMyCurrentLocationSensor(runtime, accessory),
+                HAFindMyReportAgeSensor(runtime, accessory),
+                HAFindMyLocalBLEDiagnosticSensor(runtime, accessory),
                 HAFindMyBatteryPercentSensor(runtime, accessory),
                 HAFindMySignalStrengthSensor(runtime, accessory),
             ]
@@ -194,6 +196,75 @@ class HAFindMyCurrentLocationSensor(_BaseSensor):
             "gps_accuracy": float(report.horizontal_accuracy)
             if report is not None and report.horizontal_accuracy is not None
             else None,
+        }
+
+
+class HAFindMyReportAgeSensor(_BaseSensor):
+    """Age of the newest location report Apple returned."""
+
+    _attr_name = "Find My report age"
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:clock-alert-outline"
+    suffix = "report_age"
+
+    @property
+    def native_value(self) -> int | None:
+        report = latest_report(self.coordinator, self.accessory)
+        if report is None:
+            return None
+        timestamp = report.timestamp
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=UTC)
+        age = datetime.now(tz=UTC) - timestamp.astimezone(UTC)
+        return max(0, round(age.total_seconds() / 60))
+
+    @property
+    def extra_state_attributes(self):
+        report = latest_report(self.coordinator, self.accessory)
+        return {
+            "last_successful_poll": self.coordinator.last_poll_at,
+            "report_timestamp": report.timestamp if report else None,
+            "report_confidence": getattr(report, "confidence", None) if report else None,
+            "report_payload_bytes": len(report.payload) if report else None,
+        }
+
+
+class HAFindMyLocalBLEDiagnosticSensor(_BaseSensor):
+    """Diagnostic view of rolling keys and locally matched BLE advertisements."""
+
+    _attr_name = "Local BLE diagnostic"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:bluetooth-connect"
+    suffix = "local_ble_diagnostic"
+
+    @property
+    def native_value(self) -> str:
+        ident = accessory_id(self.accessory)
+        observation_row = self.runtime.local_observations.get(ident)
+        if observation_row is not None:
+            return "seen"
+        if self.runtime.local_key_candidates.get(ident, 0) > 0:
+            return "keys ready"
+        return "no keys"
+
+    @property
+    def extra_state_attributes(self):
+        ident = accessory_id(self.accessory)
+        observation_row = self.runtime.local_observations.get(ident)
+        observation = observation_row[0] if observation_row else None
+        source = observation_row[1] if observation_row else None
+        return {
+            "key_candidates": self.runtime.local_key_candidates.get(ident, 0),
+            "last_ble_seen": observation.detected_at if observation else None,
+            "ble_source": source,
+            "ble_mac": observation.mac_address if observation else None,
+            "ble_state": observation.state if observation else None,
+            "ble_rssi": observation.rssi if observation else None,
+            "model": getattr(self.accessory, "model", None),
+            "serial_number": getattr(self.accessory, "serial_number", None),
+            "group_identifier": getattr(self.accessory, "group_identifier", None),
         }
 
 
