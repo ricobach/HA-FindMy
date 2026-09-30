@@ -20,6 +20,10 @@ Implemented in the first slice:
 - Accessory selection during setup.
 - Remote Find My location polling every 15 minutes.
 - One Home Assistant `device_tracker` entity per selected accessory.
+- Latitude, longitude and last Find My report timestamp sensors.
+- AirTag battery band plus an approximate battery percentage and battery-low binary sensor.
+- Local Bluetooth matching using Home Assistant Bluetooth adapters and ESPHome Bluetooth proxies.
+- Bluetooth presence and RSSI entities, including the proxy/source that most recently saw the tag.
 - The Apple ID password and device passcode are **not stored** by this integration.
 
 Not implemented yet:
