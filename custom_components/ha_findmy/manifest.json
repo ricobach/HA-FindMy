@@ -1,19 +1,19 @@
 {
   "domain": "ha_findmy",
   "name": "HA-FindMy",
-  "version": "0.4.2",
+  "codeowners": [
+    "@ricobach"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth"
+  ],
+  "documentation": "https://github.com/ricobach/HA-FindMy",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "config_flow": true,
-  "documentation": "https://github.com/ricobach/HA-FindMy",
   "issue_tracker": "https://github.com/ricobach/HA-FindMy/issues",
   "requirements": [
     "FindMy@git+https://github.com/parawanderer/FindMy.py.git@7969003ca785658369b650f75d9e7ca519566bf6"
   ],
-  "codeowners": [
-    "@ricobach"
-  ],
-  "dependencies": [
-    "bluetooth"
-  ]
+  "version": "0.4.1"
 }
