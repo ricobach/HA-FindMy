@@ -2,6 +2,14 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.2] - 2026-09-30
+
+### Fixed
+- Accessory management now performs an explicit Apple reauthentication when opening iCloud Keychain.
+- Reuses the saved Anisette/device identity instead of creating a new Apple client identity.
+- Handles Apple two-factor authentication inside the Configure flow.
+- Apple ID passwords remain in memory only for the management operation and are scrubbed before config-entry persistence.
+
 ## [0.4.1] - 2026-09-30
 
 ### Fixed

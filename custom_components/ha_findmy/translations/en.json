@@ -86,16 +86,43 @@
         "data": {
           "accessories": "Accessories"
         }
+      },
+      "reauth": {
+        "title": "Reauthenticate with Apple",
+        "description": "To refresh Find My accessories for {email}, Apple requires a fresh password-equivalent token. Enter your Apple ID password. The password is used only for this operation and is not stored.",
+        "data": {
+          "password": "Apple ID password"
+        }
+      },
+      "two_factor_method": {
+        "title": "Two-factor authentication",
+        "description": "Choose where Apple should send the verification code.",
+        "data": {
+          "method": "Verification method"
+        }
+      },
+      "two_factor_code": {
+        "title": "Verification code",
+        "description": "Enter the code sent by Apple.",
+        "data": {
+          "code": "Verification code"
+        }
       }
     },
     "error": {
       "invalid_passcode": "The keychain recovery request was rejected. Check the device passcode.",
-      "cannot_recover": "Could not recover Find My accessory keys."
+      "cannot_recover": "Could not recover Find My accessory keys.",
+      "invalid_auth": "Apple rejected the Apple ID or password.",
+      "cannot_connect": "Could not communicate with Apple.",
+      "unexpected_state": "Apple returned an unexpected authentication state.",
+      "cannot_request_code": "Could not request a verification code.",
+      "invalid_code": "Apple rejected the verification code."
     },
     "abort": {
-      "cannot_open_keychain": "The saved Apple session could not open iCloud Keychain recovery. Reauthentication may be required.",
+      "cannot_open_keychain": "Apple authentication succeeded, but iCloud Keychain recovery could not be opened.",
       "no_recovery_devices": "No usable iCloud Keychain recovery devices were returned for this account.",
-      "no_accessories": "No locatable Find My accessories were found."
+      "no_accessories": "No locatable Find My accessories were found.",
+      "cannot_get_2fa": "Could not enumerate two-factor authentication methods."
     }
   }
 }

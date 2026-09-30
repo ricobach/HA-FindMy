@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -286,9 +287,13 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
     def __init__(self) -> None:
         self._account: AsyncAppleAccount | None = None
         self._client: AsyncFindMyClient | None = None
+        self._two_factor_methods: list[Any] = []
+        self._two_factor_method: Any | None = None
         self._recovery_records: list[Any] = []
         self._selected_recovery_record: Any | None = None
         self._accessories: list[Any] = []
+        self._email: str | None = None
+        self._current_accessory_rows: list[dict[str, Any]] = []
 
     async def _async_close(self) -> None:
         """Close temporary Apple/iCloud objects used by the options flow."""
@@ -305,22 +310,15 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
                 _LOGGER.debug("Error closing temporary Apple account", exc_info=True)
             self._account = None
 
-    async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
-        """Restore the saved Apple session and rediscover accessories."""
-        self._current_accessory_rows: list[dict[str, Any]] = [
-            dict(item) for item in self.config_entry.data.get(CONF_ACCESSORIES, [])
-        ]
+    async def _open_keychain(self) -> config_entries.ConfigFlowResult:
+        """Open iCloud Keychain after a fresh Apple authentication."""
+        assert self._account is not None
         try:
-            account_data = dict(self.config_entry.data[CONF_ACCOUNT])
-            self._account = await self.hass.async_add_executor_job(
-                AsyncAppleAccount.from_json,
-                account_data,
-            )
             self._client = await AsyncFindMyClient.open(self._account)
             options = await self._client.recovery_options()
             self._recovery_records = list(options.recoverable)
         except Exception:
-            _LOGGER.exception("Unable to open iCloud Keychain for accessory management")
+            _LOGGER.exception("Unable to open iCloud Keychain after reauthentication")
             await self._async_close()
             return self.async_abort(reason="cannot_open_keychain")
 
@@ -329,6 +327,143 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
             return self.async_abort(reason="no_recovery_devices")
 
         return await self.async_step_recovery_device()
+
+    async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
+        """Start accessory management with an explicit fresh Apple authentication."""
+        self._current_accessory_rows = [
+            dict(item) for item in self.config_entry.data.get(CONF_ACCESSORIES, [])
+        ]
+
+        account_data = self.config_entry.data.get(CONF_ACCOUNT, {})
+        account_section = account_data.get("account") if isinstance(account_data, dict) else None
+        if not isinstance(account_section, dict):
+            return self.async_abort(reason="cannot_open_keychain")
+
+        self._email = account_section.get("username")
+        if not self._email:
+            return self.async_abort(reason="cannot_open_keychain")
+
+        return await self.async_step_reauth()
+
+    async def async_step_reauth(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Reauthenticate the saved Apple ID without persisting its password."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            password = user_input[CONF_PASSWORD]
+            try:
+                state_data = deepcopy(self.config_entry.data[CONF_ACCOUNT])
+                account_section = state_data.get("account")
+                if not isinstance(account_section, dict):
+                    raise ValueError("Saved account state has no account section")
+
+                # Reuse the saved Anisette/device identity, but start a fresh login.
+                account_section["password"] = password
+                state_data["login"] = {
+                    "state": LoginState.LOGGED_OUT.value,
+                    "data": {},
+                }
+
+                self._account = await self.hass.async_add_executor_job(
+                    AsyncAppleAccount.from_json,
+                    state_data,
+                )
+                assert self._email is not None
+                state = await self._account.login(self._email, password)
+            except InvalidCredentialsError:
+                errors["base"] = "invalid_auth"
+                await self._async_close()
+            except Exception:
+                _LOGGER.exception("Apple reauthentication failed")
+                errors["base"] = "cannot_connect"
+                await self._async_close()
+            else:
+                if state == LoginState.REQUIRE_2FA:
+                    return await self.async_step_two_factor_method()
+                if state == LoginState.LOGGED_IN:
+                    return await self._open_keychain()
+                errors["base"] = "unexpected_state"
+                await self._async_close()
+            finally:
+                password = None
+
+        return self.async_show_form(
+            step_id="reauth",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
+            description_placeholders={"email": self._email or ""},
+        )
+
+    async def async_step_two_factor_method(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Choose where Apple should send the reauthentication code."""
+        assert self._account is not None
+
+        if not self._two_factor_methods:
+            try:
+                self._two_factor_methods = list(await self._account.get_2fa_methods())
+            except Exception:
+                _LOGGER.exception("Unable to enumerate Apple 2FA methods")
+                await self._async_close()
+                return self.async_abort(reason="cannot_get_2fa")
+
+        choices: dict[str, str] = {}
+        for index, method in enumerate(self._two_factor_methods):
+            if isinstance(method, AsyncTrustedDeviceSecondFactor):
+                label = "Trusted Apple device"
+            elif isinstance(method, AsyncSmsSecondFactor):
+                label = f"SMS to {method.phone_number}"
+            else:
+                label = type(method).__name__
+            choices[str(index)] = label
+
+        if user_input is not None:
+            index = int(user_input["method"])
+            self._two_factor_method = self._two_factor_methods[index]
+            try:
+                await self._two_factor_method.request()
+            except Exception:
+                _LOGGER.exception("Unable to request Apple verification code")
+                return self.async_show_form(
+                    step_id="two_factor_method",
+                    data_schema=vol.Schema({vol.Required("method"): vol.In(choices)}),
+                    errors={"base": "cannot_request_code"},
+                )
+            return await self.async_step_two_factor_code()
+
+        return self.async_show_form(
+            step_id="two_factor_method",
+            data_schema=vol.Schema({vol.Required("method"): vol.In(choices)}),
+        )
+
+    async def async_step_two_factor_code(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Submit Apple's reauthentication verification code."""
+        assert self._two_factor_method is not None
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                state = await self._two_factor_method.submit(user_input["code"].strip())
+            except InvalidCredentialsError:
+                errors["base"] = "invalid_code"
+            except Exception:
+                _LOGGER.exception("Apple rejected or failed the verification step")
+                errors["base"] = "cannot_connect"
+            else:
+                if state == LoginState.LOGGED_IN:
+                    return await self._open_keychain()
+                errors["base"] = "unexpected_state"
+
+        return self.async_show_form(
+            step_id="two_factor_code",
+            data_schema=vol.Schema({vol.Required("code"): str}),
+            errors=errors,
+        )
 
     async def async_step_recovery_device(
         self, user_input=None
@@ -366,9 +501,6 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
                 await self._client.unlock(self._selected_recovery_record, passcode)
                 discovered = list(await self._client.accessories())
 
-                # Keep existing accessories available as choices even if a transient
-                # iCloud result omits one. Stored accessory rows already contain the
-                # recovered key material needed by the integration.
                 by_identifier: dict[str, Any] = {}
                 for accessory in discovered:
                     identifier = getattr(accessory, "identifier", None)
@@ -467,8 +599,6 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
                 },
             )
 
-            # Reload first so removed entities are no longer active, then remove
-            # their stale entity/device registry records.
             await self.hass.config_entries.async_reload(self.config_entry.entry_id)
             self._remove_accessory_registry_entries(removed_ids)
 
