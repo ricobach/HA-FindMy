@@ -21,6 +21,7 @@ Implemented in the first slice:
 - Remote Find My location polling every 15 minutes.
 - One Home Assistant `device_tracker` entity per selected accessory.
 - Latitude, longitude, GPS accuracy and last Find My report timestamp sensors.
+- A combined `Current location` sensor that prefers Bermuda Area, then nearest proxy, then a Home Assistant GPS zone, with Away/Unknown as fallback.
 - AirTag battery sensor shown as an approximate percentage derived from Apple's four battery bands.
 - Local Bluetooth matching using Home Assistant Bluetooth adapters and ESPHome Bluetooth proxies.
 - Bluetooth presence and RSSI entities, including the proxy/source that most recently saw the tag.
@@ -42,7 +43,7 @@ stable Bermuda device.
 
 Bermuda then uses its own observations from all Home Assistant Bluetooth adapters and ESPHome
 Bluetooth proxies for RSSI smoothing, distance calculation, area selection and its local
-`device_tracker`.
+`device_tracker`. HA-FindMy also reads Bermuda Area, nearest scanner, distance and RSSI for the combined `Current location` sensor while leaving Bermuda's original entities intact for automations.
 
 Bermuda currently has no public external-resolver API, so this bridge is a guarded compatibility
 shim over Bermuda's existing metadevice model. If Bermuda changes that internal interface,

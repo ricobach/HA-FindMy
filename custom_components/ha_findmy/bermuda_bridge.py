@@ -30,7 +30,7 @@ def _stable_id(accessory: FindMyAccessory) -> str:
     return f"{_STABLE_PREFIX}{accessory_id(accessory)}"
 
 
-def _bermuda_coordinators(hass: HomeAssistant) -> list[Any]:
+def bermuda_coordinators(hass: HomeAssistant) -> list[Any]:
     """Return currently loaded Bermuda coordinators without importing Bermuda."""
     coordinators: list[Any] = []
     for entry in hass.config_entries.async_entries(_BERMUDA_DOMAIN, include_disabled=False):
@@ -40,6 +40,64 @@ def _bermuda_coordinators(hass: HomeAssistant) -> list[Any]:
             coordinators.append(coordinator)
     return coordinators
 
+
+
+def bermuda_location_snapshot(
+    hass: HomeAssistant,
+    accessory: FindMyAccessory,
+) -> dict[str, object | None]:
+    """Return Bermuda's current local-location data for one accessory."""
+    empty: dict[str, object | None] = {
+        "area": None,
+        "nearest_scanner": None,
+        "distance": None,
+        "rssi": None,
+    }
+    stable_id = _stable_id(accessory).lower()
+    best = empty
+
+    for coordinator in bermuda_coordinators(hass):
+        try:
+            metadevices = getattr(coordinator, "metadevices", None)
+            if not isinstance(metadevices, dict):
+                continue
+
+            metadevice = metadevices.get(stable_id)
+            if metadevice is None:
+                devices = getattr(coordinator, "devices", None)
+                if isinstance(devices, dict):
+                    metadevice = devices.get(stable_id)
+            if metadevice is None:
+                continue
+
+            area = getattr(metadevice, "area_name", None)
+            distance = getattr(metadevice, "area_distance", None)
+            rssi = getattr(metadevice, "area_rssi", None)
+
+            nearest_scanner = None
+            area_advert = getattr(metadevice, "area_advert", None)
+            scanner_address = getattr(area_advert, "scanner_address", None)
+            devices = getattr(coordinator, "devices", None)
+            if scanner_address is not None and isinstance(devices, dict):
+                scanner = devices.get(scanner_address)
+                if scanner is not None:
+                    nearest_scanner = getattr(scanner, "name", None)
+
+            snapshot = {
+                "area": area,
+                "nearest_scanner": nearest_scanner,
+                "distance": round(float(distance), 1) if distance is not None else None,
+                "rssi": round(float(rssi), 1) if rssi is not None else None,
+            }
+
+            if area:
+                return snapshot
+            if nearest_scanner:
+                best = snapshot
+        except Exception:
+            _LOGGER.debug("Could not read Bermuda location snapshot", exc_info=True)
+
+    return best
 
 def _ensure_metadevice(
     coordinator: Any,
@@ -97,7 +155,7 @@ async def async_register_accessories_with_bermuda(
     accessories: list[FindMyAccessory],
 ) -> None:
     """Register stable Find My devices with every loaded Bermuda instance."""
-    coordinators = _bermuda_coordinators(hass)
+    coordinators = bermuda_coordinators(hass)
     if not coordinators:
         return
 
@@ -122,7 +180,7 @@ async def async_register_bermuda_source(
     bluetooth_address: str,
 ) -> None:
     """Attach a resolved rotating AirTag address to its Bermuda metadevice."""
-    coordinators = _bermuda_coordinators(hass)
+    coordinators = bermuda_coordinators(hass)
     if not coordinators:
         return
 
