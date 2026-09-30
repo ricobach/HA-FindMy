@@ -18,7 +18,6 @@ from findmy.icloud import AsyncFindMyClient
 from findmy.keychain.recovery import RecoveryError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN
@@ -40,7 +39,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._recovery_records: list[Any] = []
         self._accessories: list[Any] = []
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Collect Apple ID credentials and sign in."""
         errors: dict[str, str] = {}
 
@@ -85,7 +84,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_two_factor_method(self, user_input=None) -> FlowResult:
+    async def async_step_two_factor_method(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Choose where Apple should send the verification code."""
         assert self._account is not None
 
@@ -125,7 +124,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required("method"): vol.In(choices)}),
         )
 
-    async def async_step_two_factor_code(self, user_input=None) -> FlowResult:
+    async def async_step_two_factor_code(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Submit Apple's verification code."""
         assert self._two_factor_method is not None
         errors: dict[str, str] = {}
@@ -149,7 +148,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def _open_keychain(self) -> FlowResult:
+    async def _open_keychain(self) -> config_entries.ConfigFlowResult:
         """Open the read-only Find My/iCloud client and list recovery devices."""
         assert self._account is not None
         try:
@@ -165,7 +164,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return await self.async_step_recovery_device()
 
-    async def async_step_recovery_device(self, user_input=None) -> FlowResult:
+    async def async_step_recovery_device(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Choose the trusted device whose screen-lock passcode will unlock the keychain."""
         choices = {
             str(index): record.describe()
@@ -185,7 +184,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_device_passcode(self, user_input=None) -> FlowResult:
+    async def async_step_device_passcode(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Unlock keychain keys with a device screen-lock passcode.
 
         The passcode is intentionally never placed in config-entry data.
@@ -220,7 +219,7 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_accessories(self, user_input=None) -> FlowResult:
+    async def async_step_accessories(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Select which discovered accessories to add."""
         choices: dict[str, str] = {}
         by_id: dict[str, Any] = {}
