@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN, PLATFORMS
+from .bermuda_bridge import async_register_accessories_with_bermuda
 from .coordinator import HAFindMyCoordinator
 from .runtime import HAFindMyRuntime
 
@@ -42,6 +43,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         accessories=accessories,
         coordinator=coordinator,
     )
+
+    # Optional integration: when Bermuda is installed and loaded, expose each
+    # accessory as a stable Bermuda metadevice. Rotating BLE source addresses
+    # are attached later as HA-FindMy resolves them.
+    await async_register_accessories_with_bermuda(hass, accessories)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

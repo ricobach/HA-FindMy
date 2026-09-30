@@ -24,15 +24,30 @@ Implemented in the first slice:
 - AirTag battery band plus an approximate battery percentage and battery-low binary sensor.
 - Local Bluetooth matching using Home Assistant Bluetooth adapters and ESPHome Bluetooth proxies.
 - Bluetooth presence and RSSI entities, including the proxy/source that most recently saw the tag.
+- Optional Bermuda BLE Trilateration bridge: selected AirTags are registered as stable Bermuda devices and rotating BLE addresses are attached automatically.
 - The Apple ID password and device passcode are **not stored** by this integration.
 
 Not implemented yet:
 
 - Re-authentication flow when Apple expires a session.
 - Adding/removing accessories after initial setup without re-running setup.
-- Local Bluetooth / ESPHome proxy tracking.
 - Persisting recovered keychain keys to avoid the passcode on a future discovery run.
-- Sensors for battery, diagnostics and local presence.
+
+## Bermuda BLE Trilateration integration
+
+If [Bermuda BLE Trilateration](https://github.com/agittins/bermuda) is installed and loaded,
+HA-FindMy automatically creates a stable Bermuda metadevice for each selected Find My accessory.
+Whenever HA-FindMy resolves a rotating AirTag Bluetooth address, it attaches that address to the
+stable Bermuda device.
+
+Bermuda then uses its own observations from all Home Assistant Bluetooth adapters and ESPHome
+Bluetooth proxies for RSSI smoothing, distance calculation, area selection and its local
+`device_tracker`.
+
+Bermuda currently has no public external-resolver API, so this bridge is a guarded compatibility
+shim over Bermuda's existing metadevice model. If Bermuda changes that internal interface,
+HA-FindMy will log a warning and continue operating normally; Find My GPS and local Bluetooth
+tracking are not dependent on Bermuda.
 
 ## Dependency strategy
 

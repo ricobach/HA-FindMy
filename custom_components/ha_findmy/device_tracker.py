@@ -17,6 +17,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ._entity import battery_percent, build_device_info
+from .bermuda_bridge import async_register_bermuda_source
 from .const import DOMAIN, signal_local_observation
 from .coordinator import HAFindMyCoordinator, accessory_id
 from .local_bluetooth import (
@@ -284,6 +285,18 @@ class HAFindMyTracker(CoordinatorEntity[HAFindMyCoordinator], TrackerEntity):
             signal_local_observation(self._attr_unique_id),
             observation,
             service_info.source,
+        )
+
+        # Tell Bermuda that this rotating BLE address belongs to this stable
+        # Find My accessory. Bermuda keeps the per-proxy advertisements/RSSI and
+        # does its own distance and area calculations.
+        self.hass.async_create_task(
+            async_register_bermuda_source(
+                self.hass,
+                self.accessory,
+                observation.mac_address,
+            ),
+            f"ha_findmy bermuda bridge: {self._attr_unique_id}",
         )
 
         # A primary-key observation can repair alignment for this runtime session.
