@@ -18,6 +18,7 @@ Implemented in the first slice:
 - Read-only iCloud Keychain recovery using a trusted device's screen-lock passcode.
 - Accessory discovery directly from iCloud.
 - Accessory selection during setup.
+- Accessory management after setup from **Settings → Devices & services → HA-FindMy → Configure**; rediscover, add or remove accessories without deleting the integration or entering the Apple ID/password again.
 - Remote Find My location polling every 15 minutes.
 - One Home Assistant `device_tracker` entity per selected accessory.
 - Latitude, longitude, GPS accuracy and last Find My report timestamp sensors.
@@ -33,9 +34,14 @@ Implemented in the first slice:
 Not implemented yet:
 
 - Re-authentication flow when Apple expires a session.
-- Adding/removing accessories after initial setup without re-running setup.
 - Persisting recovered keychain keys to avoid the passcode on a future discovery run.
 - Model-specific AirPods behaviour is still being validated; the generic Find My accessory and BLE diagnostics are intended to show whether a given case/bud can use the existing Bermuda path.
+
+## Managing accessories after setup
+
+Open **Settings → Devices & services → HA-FindMy → Configure** to refresh the iCloud accessory list and change the selected devices. Because HA-FindMy intentionally does not persist recovered iCloud Keychain keys, Home Assistant will ask you to choose a trusted Apple device and enter its screen-lock passcode for each rediscovery. The passcode is not stored.
+
+Currently selected accessories stay preselected. Explicitly deselecting an accessory removes its HA-FindMy entities and device registry entry after the integration reloads. Newly selected accessories are created automatically.
 
 ## Bermuda BLE Trilateration integration
 

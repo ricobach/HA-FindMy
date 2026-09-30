@@ -63,5 +63,39 @@
       "no_recovery_devices": "No usable iCloud Keychain recovery devices were returned for this account.",
       "no_accessories": "No locatable Find My accessories were found."
     }
+  },
+  "options": {
+    "step": {
+      "recovery_device": {
+        "title": "Choose a trusted device",
+        "description": "To refresh the accessory list, choose the device whose screen-lock passcode can unlock the Find My keys in iCloud Keychain.",
+        "data": {
+          "recovery_device": "Trusted device"
+        }
+      },
+      "device_passcode": {
+        "title": "Device screen-lock passcode",
+        "description": "Enter the PIN/password used to unlock the selected Apple device. It is used only for this recovery request and is not stored.",
+        "data": {
+          "passcode": "Device passcode"
+        }
+      },
+      "accessories": {
+        "title": "Manage Find My accessories",
+        "description": "Select the accessories that should be available in Home Assistant. Deselect an accessory to remove its entities and device.",
+        "data": {
+          "accessories": "Accessories"
+        }
+      }
+    },
+    "error": {
+      "invalid_passcode": "The keychain recovery request was rejected. Check the device passcode.",
+      "cannot_recover": "Could not recover Find My accessory keys."
+    },
+    "abort": {
+      "cannot_open_keychain": "The saved Apple session could not open iCloud Keychain recovery. Reauthentication may be required.",
+      "no_recovery_devices": "No usable iCloud Keychain recovery devices were returned for this account.",
+      "no_accessories": "No locatable Find My accessories were found."
+    }
   }
 }

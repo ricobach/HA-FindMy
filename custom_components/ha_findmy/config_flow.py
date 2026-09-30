@@ -18,6 +18,8 @@ from findmy.icloud import AsyncFindMyClient
 from findmy.keychain.recovery import RecoveryError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN
@@ -38,6 +40,14 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._client: AsyncFindMyClient | None = None
         self._recovery_records: list[Any] = []
         self._accessories: list[Any] = []
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> "HAFindMyOptionsFlow":
+        """Return the options flow for accessory management."""
+        return HAFindMyOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Collect Apple ID credentials and sign in."""
@@ -268,3 +278,239 @@ class HAFindMyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {vol.Required("accessories"): cv.multi_select(choices)}
             ),
         )
+
+
+class HAFindMyOptionsFlow(config_entries.OptionsFlow):
+    """Add or remove Find My accessories on an existing config entry."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self.config_entry = config_entry
+        self._account: AsyncAppleAccount | None = None
+        self._client: AsyncFindMyClient | None = None
+        self._recovery_records: list[Any] = []
+        self._selected_recovery_record: Any | None = None
+        self._accessories: list[Any] = []
+        self._current_accessory_rows: list[dict[str, Any]] = [
+            dict(item) for item in config_entry.data.get(CONF_ACCESSORIES, [])
+        ]
+
+    async def _async_close(self) -> None:
+        """Close temporary Apple/iCloud objects used by the options flow."""
+        if self._client is not None:
+            try:
+                await self._client.close()
+            except Exception:
+                _LOGGER.debug("Error closing temporary iCloud client", exc_info=True)
+            self._client = None
+        if self._account is not None:
+            try:
+                await self._account.close()
+            except Exception:
+                _LOGGER.debug("Error closing temporary Apple account", exc_info=True)
+            self._account = None
+
+    async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
+        """Restore the saved Apple session and rediscover accessories."""
+        try:
+            account_data = dict(self.config_entry.data[CONF_ACCOUNT])
+            self._account = await self.hass.async_add_executor_job(
+                AsyncAppleAccount.from_json,
+                account_data,
+            )
+            self._client = await AsyncFindMyClient.open(self._account)
+            options = await self._client.recovery_options()
+            self._recovery_records = list(options.recoverable)
+        except Exception:
+            _LOGGER.exception("Unable to open iCloud Keychain for accessory management")
+            await self._async_close()
+            return self.async_abort(reason="cannot_open_keychain")
+
+        if not self._recovery_records:
+            await self._async_close()
+            return self.async_abort(reason="no_recovery_devices")
+
+        return await self.async_step_recovery_device()
+
+    async def async_step_recovery_device(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Choose a trusted device for the keychain recovery operation."""
+        choices = {
+            str(index): record.describe()
+            for index, record in enumerate(self._recovery_records)
+        }
+
+        if user_input is not None:
+            self._selected_recovery_record = self._recovery_records[
+                int(user_input["recovery_device"])
+            ]
+            return await self.async_step_device_passcode()
+
+        return self.async_show_form(
+            step_id="recovery_device",
+            data_schema=vol.Schema(
+                {vol.Required("recovery_device"): vol.In(choices)}
+            ),
+        )
+
+    async def async_step_device_passcode(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Unlock the keychain and rediscover Find My accessories."""
+        assert self._client is not None
+        assert self._selected_recovery_record is not None
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            passcode = user_input["passcode"]
+            try:
+                await self._client.unlock(self._selected_recovery_record, passcode)
+                discovered = list(await self._client.accessories())
+
+                # Keep existing accessories available as choices even if a transient
+                # iCloud result omits one. Stored accessory rows already contain the
+                # recovered key material needed by the integration.
+                by_identifier: dict[str, Any] = {}
+                for accessory in discovered:
+                    identifier = getattr(accessory, "identifier", None)
+                    if identifier:
+                        by_identifier[identifier] = accessory
+
+                existing = await self.hass.async_add_executor_job(
+                    lambda: [
+                        FindMyAccessory.from_json(row)
+                        for row in self._current_accessory_rows
+                    ]
+                )
+                for accessory in existing:
+                    identifier = getattr(accessory, "identifier", None)
+                    if identifier and identifier not in by_identifier:
+                        discovered.append(accessory)
+                        by_identifier[identifier] = accessory
+
+                self._accessories = discovered
+            except RecoveryError:
+                errors["base"] = "invalid_passcode"
+            except Exception:
+                _LOGGER.exception("Unable to rediscover Find My accessories")
+                errors["base"] = "cannot_recover"
+            finally:
+                passcode = None
+
+            if not errors:
+                if not self._accessories:
+                    await self._async_close()
+                    return self.async_abort(reason="no_accessories")
+                if self._client is not None:
+                    await self._client.close()
+                    self._client = None
+                return await self.async_step_accessories()
+
+        return self.async_show_form(
+            step_id="device_passcode",
+            data_schema=vol.Schema({vol.Required("passcode"): str}),
+            errors=errors,
+        )
+
+    async def async_step_accessories(
+        self, user_input=None
+    ) -> config_entries.ConfigFlowResult:
+        """Select the accessories that should remain configured."""
+        choices: dict[str, str] = {}
+        by_key: dict[str, Any] = {}
+        current_ids = {
+            row.get("identifier")
+            for row in self._current_accessory_rows
+            if row.get("identifier")
+        }
+        default_selected: list[str] = []
+
+        for index, accessory in enumerate(self._accessories):
+            key = str(index)
+            name = accessory.name or "Unnamed Find My accessory"
+            serial = getattr(accessory, "serial_number", None)
+            model = getattr(accessory, "model", None)
+            details = serial or model
+            choices[key] = f"{name} ({details})" if details else name
+            by_key[key] = accessory
+            if getattr(accessory, "identifier", None) in current_ids:
+                default_selected.append(key)
+
+        if user_input is not None:
+            selected_keys = list(user_input.get("accessories", []))
+            selected_accessories = [by_key[key] for key in selected_keys]
+            accessory_data = [accessory.to_json() for accessory in selected_accessories]
+
+            new_ids = {
+                getattr(accessory, "identifier", None)
+                for accessory in selected_accessories
+                if getattr(accessory, "identifier", None)
+            }
+            removed_ids = current_ids - new_ids
+
+            account_data = (
+                dict(self._account.to_json())
+                if self._account is not None
+                else dict(self.config_entry.data[CONF_ACCOUNT])
+            )
+            account_section = account_data.get("account")
+            if isinstance(account_section, dict):
+                account_section["password"] = None
+
+            await self._async_close()
+
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={
+                    **self.config_entry.data,
+                    CONF_ACCOUNT: account_data,
+                    CONF_ACCESSORIES: accessory_data,
+                },
+            )
+
+            # Reload first so removed entities are no longer active, then remove
+            # their stale entity/device registry records.
+            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
+            self._remove_accessory_registry_entries(removed_ids)
+
+            return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="accessories",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "accessories",
+                        default=default_selected,
+                    ): cv.multi_select(choices)
+                }
+            ),
+        )
+
+    @callback
+    def _remove_accessory_registry_entries(self, removed_ids: set[str]) -> None:
+        """Remove Home Assistant registry entries for explicitly deselected accessories."""
+        if not removed_ids:
+            return
+
+        entity_registry = er.async_get(self.hass)
+        for entity in list(er.async_entries_for_config_entry(
+            entity_registry,
+            self.config_entry.entry_id,
+        )):
+            unique_id = entity.unique_id
+            if any(
+                unique_id == identifier
+                or unique_id.startswith(f"{identifier}_")
+                for identifier in removed_ids
+            ):
+                entity_registry.async_remove(entity.entity_id)
+
+        device_registry = dr.async_get(self.hass)
+        for identifier in removed_ids:
+            device = device_registry.async_get_device_by_identifier(
+                (DOMAIN, identifier),
+                self.config_entry.entry_id,
+            )
+            if device is not None:
+                device_registry.async_remove_device(device.id)
