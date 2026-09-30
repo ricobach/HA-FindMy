@@ -1,4 +1,4 @@
-name: Validate
+name: Syntax and metadata
 
 on:
   push:
@@ -11,27 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  hassfest:
-    name: Hassfest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Run hassfest
-        uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    name: HACS
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Run HACS validation
-        uses: hacs/action@main
-        with:
-          category: integration
-
-  syntax:
+  validate:
     name: Syntax and metadata
     runs-on: ubuntu-latest
     steps:
