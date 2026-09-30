@@ -1,0 +1,67 @@
+{
+  "title": "HA-FindMy",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to Apple",
+        "description": "HA-FindMy uses local Anisette. No external Anisette server is required.",
+        "data": {
+          "email": "Apple ID",
+          "password": "Password"
+        }
+      },
+      "two_factor_method": {
+        "title": "Two-factor authentication",
+        "description": "Choose where Apple should send the verification code.",
+        "data": {
+          "method": "Verification method"
+        }
+      },
+      "two_factor_code": {
+        "title": "Verification code",
+        "description": "Enter the code sent by Apple.",
+        "data": {
+          "code": "Verification code"
+        }
+      },
+      "recovery_device": {
+        "title": "Choose a trusted device",
+        "description": "Choose the device whose screen-lock passcode will be used to read the Find My accessory keys from iCloud Keychain.",
+        "data": {
+          "recovery_device": "Trusted device"
+        }
+      },
+      "device_passcode": {
+        "title": "Device screen-lock passcode",
+        "description": "Enter the PIN/password used to unlock the selected Apple device. It is used only for this recovery request and is not stored.",
+        "data": {
+          "passcode": "Device passcode"
+        }
+      },
+      "accessories": {
+        "title": "Choose Find My accessories",
+        "description": "Select the accessories to add to Home Assistant.",
+        "data": {
+          "accessories": "Accessories"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Apple rejected the Apple ID or password.",
+      "cannot_connect": "Could not communicate with Apple.",
+      "unexpected_state": "Apple returned an unexpected authentication state.",
+      "cannot_request_code": "Could not request a verification code.",
+      "invalid_code": "Apple rejected the verification code.",
+      "invalid_passcode": "The keychain recovery request was rejected. Check the device passcode.",
+      "cannot_recover": "Could not recover Find My accessory keys.",
+      "select_one": "Select at least one accessory."
+    },
+    "abort": {
+      "already_configured": "This Apple ID is already configured.",
+      "cannot_get_2fa": "Could not enumerate two-factor authentication methods.",
+      "cannot_open_keychain": "Signed in, but iCloud Keychain recovery could not be opened.",
+      "no_recovery_devices": "No usable iCloud Keychain recovery devices were returned for this account.",
+      "no_accessories": "No locatable Find My accessories were found."
+    }
+  }
+}

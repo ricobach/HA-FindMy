@@ -1,0 +1,13 @@
+{
+  "domain": "ha_findmy",
+  "name": "HA-FindMy",
+  "version": "0.1.0",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "config_flow": true,
+  "documentation": "https://github.com/ricobach/HA-FindMy",
+  "issue_tracker": "https://github.com/ricobach/HA-FindMy/issues",
+  "requirements": [
+    "FindMy @ https://github.com/parawanderer/FindMy.py/archive/7969003ca785658369b650f75d9e7ca519566bf6.zip"
+  ]
+}
