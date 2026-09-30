@@ -2,44 +2,50 @@
 
 All notable changes to HA-FindMy are documented here.
 
-## [0.4.2] - 2026-09-30
-
-- Added standard HACS and hassfest GitHub Actions.
-- Moved local integration branding into Home Assistant's supported `brand/` directory.
-- Added release automation, Dependabot configuration, issue templates, licensing and attribution files.
-- Added repository validation badges and development documentation.
-
 ## [0.4.1] - 2026-09-30
 
-- Fixed Home Assistant options-flow startup for post-setup accessory management.
+### Fixed
+- Fixed Home Assistant options-flow startup when opening Configure.
 
 ## [0.4.0] - 2026-09-30
 
-- Added post-setup accessory discovery, selection and removal through Configure.
-- Added cleanup for entities and device-registry entries when accessories are removed.
+### Added
+- Manage selected Find My accessories after initial setup.
+- Rediscover, add and remove accessories without deleting the integration.
 
 ## [0.3.4] - 2026-09-30
 
-- Added Find My report freshness diagnostics.
-- Added local BLE/key diagnostics, including AirPods grouping metadata.
+### Added
+- Find My report-age and Apple polling diagnostics.
+- Local BLE/key diagnostics, including accessory grouping metadata.
 
 ## [0.3.3] - 2026-09-30
 
-- Added the combined Current location sensor using Bermuda area, nearest scanner, GPS zone and fallback state.
+### Added
+- Combined Current location sensor using Bermuda area/proxy and GPS-zone fallback.
 
 ## [0.3.2] - 2026-09-30
 
-- Added GPS accuracy sensor.
+### Added
+- GPS accuracy sensor.
 
 ## [0.3.1] - 2026-09-30
 
-- Simplified battery entities to retain the approximate percentage sensor only.
+### Changed
+- Simplified battery entities while retaining approximate battery percentage.
 
 ## [0.3.0] - 2026-09-30
 
-- Added local Bluetooth matching through Home Assistant adapters and ESPHome proxies.
-- Added optional Bermuda BLE Trilateration bridge.
+### Added
+- Bermuda BLE Trilateration bridge for stable Find My accessory identities.
+
+## [0.2.0] - 2026-09-30
+
+### Added
+- Local Bluetooth tracking through Home Assistant Bluetooth and ESPHome proxies.
+- Battery, presence and RSSI entities.
 
 ## [0.1.0] - 2026-09-30
 
-- Initial HA-FindMy custom integration with local Anisette, Apple authentication, iCloud Keychain accessory recovery and Find My GPS tracking.
+### Added
+- Initial Apple sign-in, 2FA, iCloud Keychain recovery, accessory selection and Find My GPS tracking.

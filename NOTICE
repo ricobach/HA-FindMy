@@ -1,0 +1,11 @@
+HA-FindMy
+
+This project contains original work and code adapted from concepts and implementation patterns in:
+- malmeloo/hass-FindMy (GPL-3.0)
+- malmeloo/FindMy.py and the parawanderer/FindMy.py fork
+- OpenTagViewer's iCloud accessory recovery flow
+
+HA-FindMy is distributed under the GNU General Public License v3.0.
+
+Apple, AirTag, AirPods, Apple Watch, Find My and related marks are trademarks of Apple Inc.
+This project is not affiliated with or endorsed by Apple.

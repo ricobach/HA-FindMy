@@ -1,39 +1,38 @@
-name: Create release
+name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to release, without the v prefix (for example 0.4.2)"
-        required: true
-        type: string
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   contents: write
 
 jobs:
   release:
+    name: Create GitHub release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Verify manifest version
-        env:
-          VERSION: ${{ inputs.version }}
+      - name: Verify tag matches manifest version
+        shell: bash
         run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
           MANIFEST_VERSION="$(python -c 'import json; print(json.load(open("custom_components/ha_findmy/manifest.json"))["version"])')"
-          if [ "$MANIFEST_VERSION" != "$VERSION" ]; then
-            echo "Manifest version $MANIFEST_VERSION does not match requested release $VERSION"
+          if [ "$TAG_VERSION" != "$MANIFEST_VERSION" ]; then
+            echo "Tag version $TAG_VERSION does not match manifest version $MANIFEST_VERSION"
             exit 1
           fi
 
-      - name: Create GitHub release
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
+        shell: bash
         run: |
-          gh release create "v$VERSION" \
-            --target "${{ github.sha }}" \
-            --title "HA-FindMy v$VERSION" \
-            --generate-notes
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists."
+          else
+            gh release create "$GITHUB_REF_NAME"               --title "$GITHUB_REF_NAME"               --generate-notes               --verify-tag
+          fi

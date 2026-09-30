@@ -5,15 +5,16 @@ labels:
   - enhancement
 body:
   - type: textarea
-    id: use_case
+    id: problem
     attributes:
-      label: Use case
-      description: What problem would this feature solve?
+      label: Problem or use case
+      description: What are you trying to achieve?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed behavior
+      description: Describe how you would like HA-FindMy to behave.
     validations:
       required: true

@@ -110,3 +110,12 @@ This project is not affiliated with or endorsed by Apple.
 This repository is structured as a HACS custom integration and is continuously checked with the official HACS validation action and Home Assistant hassfest. Pull requests and pushes run both validators, and scheduled runs catch changes in HACS/Home Assistant requirements.
 
 Releases should use the same semantic version as `custom_components/ha_findmy/manifest.json`. The repository includes a manual release workflow that creates a GitHub release from the version in the manifest.
+
+
+## Releases and HACS validation
+
+This repository is structured as a HACS custom integration. Every push and pull request runs both the official HACS validation action and Home Assistant hassfest, plus basic JSON and Python syntax checks.
+
+Releases use semantic-version tags matching the integration version in `custom_components/ha_findmy/manifest.json`, for example `v0.4.1`. Pushing such a tag creates a GitHub Release automatically. HACS can then use the release/tag as the update source.
+
+The repository intentionally keeps installation content under `custom_components/ha_findmy`; no generated build output is required for normal HACS installation.

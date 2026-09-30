@@ -7,36 +7,41 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve HA-FindMy. Please remove secrets, Apple IDs, passcodes, private key material, and session data from logs.
+        Thanks for reporting a problem. Please avoid posting Apple ID passwords, device passcodes, private Find My keys, or authentication/session data.
   - type: input
     id: version
     attributes:
       label: HA-FindMy version
-      placeholder: "0.4.2"
+      placeholder: "0.4.1"
     validations:
       required: true
   - type: input
     id: ha_version
     attributes:
       label: Home Assistant version
-      placeholder: "2026.x.x"
+      placeholder: "2026.9.x"
     validations:
       required: true
   - type: textarea
     id: problem
     attributes:
       label: What happened?
+      description: Describe what you expected and what happened instead.
     validations:
       required: true
   - type: textarea
-    id: expected
+    id: steps
     attributes:
-      label: What did you expect?
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Relevant logs
-      description: Redact credentials, account/session data, passcodes, private keys and identifying location data.
+      label: Relevant Home Assistant logs
+      description: Redact credentials, passcodes, keys, tokens and session data before posting.
       render: text
