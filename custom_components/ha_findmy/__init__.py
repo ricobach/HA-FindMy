@@ -7,7 +7,7 @@ import logging
 from findmy import AsyncAppleAccount, FindMyAccessory
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN, PLATFORMS
 from .bermuda_bridge import async_register_accessories_with_bermuda
@@ -51,14 +51,68 @@ def _remove_retired_battery_entities(
                 registry.async_remove(entity_id)
 
 
+def _accessory_rows(entry: ConfigEntry) -> list[dict]:
+    """Return selected accessories, preferring post-setup options."""
+    rows = entry.options.get(CONF_ACCESSORIES, entry.data.get(CONF_ACCESSORIES, []))
+    return [dict(item) for item in rows]
+
+
+def _remove_unselected_registry_entries(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    active_accessories: list[FindMyAccessory],
+) -> None:
+    """Remove stale entities/devices for accessories no longer selected."""
+    active_ids = {accessory_id(accessory) for accessory in active_accessories}
+
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
+
+    stale_device_ids: set[str] = set()
+    stale_accessory_ids: set[str] = set()
+
+    for device in list(dr.async_entries_for_config_entry(
+        device_registry,
+        entry.entry_id,
+    )):
+        accessory_ids = {
+            identifier
+            for domain, identifier in device.identifiers
+            if domain == DOMAIN
+        }
+        if not accessory_ids:
+            continue
+        if accessory_ids.isdisjoint(active_ids):
+            stale_device_ids.add(device.id)
+            stale_accessory_ids.update(accessory_ids)
+
+    for entity in list(er.async_entries_for_config_entry(
+        entity_registry,
+        entry.entry_id,
+    )):
+        if entity.device_id in stale_device_ids or any(
+            entity.unique_id == identifier
+            or entity.unique_id.startswith(f"{identifier}_")
+            for identifier in stale_accessory_ids
+        ):
+            entity_registry.async_remove(entity.entity_id)
+
+    for device_id in stale_device_ids:
+        device_registry.async_remove_device(device_id)
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration after accessory options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HA-FindMy from a config entry."""
     account = await _restore_account(hass, dict(entry.data[CONF_ACCOUNT]))
-    accessories = await _restore_accessories(
-        hass, [dict(item) for item in entry.data[CONF_ACCESSORIES]]
-    )
+    accessories = await _restore_accessories(hass, _accessory_rows(entry))
 
     _remove_retired_battery_entities(hass, entry, accessories)
+    _remove_unselected_registry_entries(hass, entry, accessories)
 
     coordinator = HAFindMyCoordinator(hass, entry, account, accessories)
     await coordinator.async_config_entry_first_refresh()
@@ -75,6 +129,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_register_accessories_with_bermuda(hass, accessories)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     return True
 
 

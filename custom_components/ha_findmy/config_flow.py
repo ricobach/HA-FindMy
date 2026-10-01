@@ -21,7 +21,6 @@ from findmy.keychain.session import KeychainSessionError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
-from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_ACCESSORIES, CONF_ACCOUNT, DOMAIN
@@ -331,9 +330,11 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None) -> config_entries.ConfigFlowResult:
         """Start accessory management with an explicit fresh Apple authentication."""
-        self._current_accessory_rows = [
-            dict(item) for item in self.config_entry.data.get(CONF_ACCESSORIES, [])
-        ]
+        selected_rows = self.config_entry.options.get(
+            CONF_ACCESSORIES,
+            self.config_entry.data.get(CONF_ACCESSORIES, []),
+        )
+        self._current_accessory_rows = [dict(item) for item in selected_rows]
 
         account_data = self.config_entry.data.get(CONF_ACCOUNT, {})
         account_section = account_data.get("account") if isinstance(account_data, dict) else None
@@ -543,27 +544,6 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
                     if identifier:
                         by_identifier[identifier] = accessory
 
-                # Existing accessory rows are only a safety net for a transiently
-                # incomplete iCloud discovery. A stale/old row must never turn a
-                # successful keychain recovery into a generic recovery failure.
-                for row in self._current_accessory_rows:
-                    try:
-                        accessory = await self.hass.async_add_executor_job(
-                            FindMyAccessory.from_json,
-                            row,
-                        )
-                    except Exception:
-                        _LOGGER.warning(
-                            "Skipping an unreadable previously stored Find My accessory",
-                            exc_info=True,
-                        )
-                        continue
-
-                    identifier = getattr(accessory, "identifier", None)
-                    if identifier and identifier not in by_identifier:
-                        discovered.append(accessory)
-                        by_identifier[identifier] = accessory
-
                 self._accessories = discovered
 
             if not errors:
@@ -610,37 +590,15 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
             selected_accessories = [by_key[key] for key in selected_keys]
             accessory_data = [accessory.to_json() for accessory in selected_accessories]
 
-            new_ids = {
-                getattr(accessory, "identifier", None)
-                for accessory in selected_accessories
-                if getattr(accessory, "identifier", None)
-            }
-            removed_ids = current_ids - new_ids
-
-            account_data = (
-                dict(self._account.to_json())
-                if self._account is not None
-                else dict(self.config_entry.data[CONF_ACCOUNT])
-            )
-            account_section = account_data.get("account")
-            if isinstance(account_section, dict):
-                account_section["password"] = None
-
             await self._async_close()
 
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data={
-                    **self.config_entry.data,
-                    CONF_ACCOUNT: account_data,
-                    CONF_ACCESSORIES: accessory_data,
-                },
+            # Store post-setup accessory selection as proper Home Assistant options.
+            # The config-entry update listener reloads the integration only after this
+            # flow has completed, avoiding reload/setup cancellation races.
+            return self.async_create_entry(
+                title="",
+                data={CONF_ACCESSORIES: accessory_data},
             )
-
-            await self.hass.config_entries.async_reload(self.config_entry.entry_id)
-            self._remove_accessory_registry_entries(removed_ids)
-
-            return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="accessories",
@@ -653,31 +611,3 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
                 }
             ),
         )
-
-    @callback
-    def _remove_accessory_registry_entries(self, removed_ids: set[str]) -> None:
-        """Remove Home Assistant registry entries for explicitly deselected accessories."""
-        if not removed_ids:
-            return
-
-        entity_registry = er.async_get(self.hass)
-        for entity in list(er.async_entries_for_config_entry(
-            entity_registry,
-            self.config_entry.entry_id,
-        )):
-            unique_id = entity.unique_id
-            if any(
-                unique_id == identifier
-                or unique_id.startswith(f"{identifier}_")
-                for identifier in removed_ids
-            ):
-                entity_registry.async_remove(entity.entity_id)
-
-        device_registry = dr.async_get(self.hass)
-        for identifier in removed_ids:
-            device = device_registry.async_get_device_by_identifier(
-                (DOMAIN, identifier),
-                self.config_entry.entry_id,
-            )
-            if device is not None:
-                device_registry.async_remove_device(device.id)

@@ -2,6 +2,14 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.4] - 2026-10-01
+
+### Fixed
+- Accessory management now stores post-setup selection in Home Assistant config-entry options.
+- Reloads now happen through the standard config-entry update listener after the options flow completes, avoiding setup-cancelled races.
+- Removed reparsing of legacy stored accessory rows during rediscovery.
+- Stale entities and devices for deselected accessories are cleaned up during setup/reload.
+
 ## [0.4.3] - 2026-10-01
 
 ### Fixed
