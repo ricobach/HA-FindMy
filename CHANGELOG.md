@@ -2,6 +2,13 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.3] - 2026-10-01
+
+### Fixed
+- Split Configure-time keychain recovery, accessory discovery and stored-accessory parsing into separate failure stages.
+- Stale or unreadable previously stored accessory rows no longer turn a successful keychain recovery into a generic recovery failure.
+- Added clearer guidance when an escrow record/passcode or keychain record cannot be used.
+
 ## [0.4.2] - 2026-09-30
 
 ### Fixed

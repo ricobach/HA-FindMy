@@ -116,7 +116,10 @@
       "cannot_connect": "Could not communicate with Apple.",
       "unexpected_state": "Apple returned an unexpected authentication state.",
       "cannot_request_code": "Could not request a verification code.",
-      "invalid_code": "Apple rejected the verification code."
+      "invalid_code": "Apple rejected the verification code.",
+      "recovery_failed": "Apple rejected the escrow recovery. This can mean the selected device passcode is wrong, but Apple returns the same failure for some escrow-protocol mismatches. Verify the passcode or try a different trusted device.",
+      "keychain_recovery_failed": "The selected recovery record could not provide usable iCloud Keychain material. Try a different trusted Apple device if one is available.",
+      "accessory_discovery_failed": "The device passcode recovery completed, but Find My accessories could not be decrypted/read from iCloud."
     },
     "abort": {
       "cannot_open_keychain": "Apple authentication succeeded, but iCloud Keychain recovery could not be opened.",

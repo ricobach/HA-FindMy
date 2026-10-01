@@ -17,6 +17,7 @@ from findmy import (
 )
 from findmy.icloud import AsyncFindMyClient
 from findmy.keychain.recovery import RecoveryError
+from findmy.keychain.session import KeychainSessionError
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import callback
@@ -497,36 +498,73 @@ class HAFindMyOptionsFlow(config_entries.OptionsFlow):
 
         if user_input is not None:
             passcode = user_input["passcode"]
+
             try:
                 await self._client.unlock(self._selected_recovery_record, passcode)
-                discovered = list(await self._client.accessories())
+            except RecoveryError as err:
+                _LOGGER.warning(
+                    "Find My escrow recovery failed for %s: %s",
+                    self._selected_recovery_record.describe(),
+                    err,
+                )
+                errors["base"] = "recovery_failed"
+            except KeychainSessionError as err:
+                _LOGGER.warning(
+                    "Find My keychain recovery failed for %s: %s",
+                    self._selected_recovery_record.describe(),
+                    err,
+                )
+                errors["base"] = "keychain_recovery_failed"
+            except Exception:
+                _LOGGER.exception("Unexpected error while unlocking Find My keychain")
+                errors["base"] = "cannot_recover"
+            finally:
+                passcode = None
 
+            if not errors:
+                try:
+                    discovered = list(await self._client.accessories())
+                except KeychainSessionError as err:
+                    _LOGGER.warning(
+                        "Find My accessory decryption/discovery failed after recovery: %s",
+                        err,
+                    )
+                    errors["base"] = "accessory_discovery_failed"
+                except Exception:
+                    _LOGGER.exception(
+                        "Unexpected error while reading Find My accessories after recovery"
+                    )
+                    errors["base"] = "accessory_discovery_failed"
+
+            if not errors:
                 by_identifier: dict[str, Any] = {}
                 for accessory in discovered:
                     identifier = getattr(accessory, "identifier", None)
                     if identifier:
                         by_identifier[identifier] = accessory
 
-                existing = await self.hass.async_add_executor_job(
-                    lambda: [
-                        FindMyAccessory.from_json(row)
-                        for row in self._current_accessory_rows
-                    ]
-                )
-                for accessory in existing:
+                # Existing accessory rows are only a safety net for a transiently
+                # incomplete iCloud discovery. A stale/old row must never turn a
+                # successful keychain recovery into a generic recovery failure.
+                for row in self._current_accessory_rows:
+                    try:
+                        accessory = await self.hass.async_add_executor_job(
+                            FindMyAccessory.from_json,
+                            row,
+                        )
+                    except Exception:
+                        _LOGGER.warning(
+                            "Skipping an unreadable previously stored Find My accessory",
+                            exc_info=True,
+                        )
+                        continue
+
                     identifier = getattr(accessory, "identifier", None)
                     if identifier and identifier not in by_identifier:
                         discovered.append(accessory)
                         by_identifier[identifier] = accessory
 
                 self._accessories = discovered
-            except RecoveryError:
-                errors["base"] = "invalid_passcode"
-            except Exception:
-                _LOGGER.exception("Unable to rediscover Find My accessories")
-                errors["base"] = "cannot_recover"
-            finally:
-                passcode = None
 
             if not errors:
                 if not self._accessories:
