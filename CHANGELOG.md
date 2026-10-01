@@ -2,6 +2,14 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.7] - 2026-10-01
+
+### Fixed
+- Reverted concurrent Find My report requests because Apple's report service may throttle or stall parallel requests from one account.
+- Accessories are now refreshed sequentially in the background with a generous 180-second per-accessory safety timeout.
+- Successful accessory results are published immediately instead of waiting for the whole accessory set to finish.
+- Slow or failed accessories retain their previous good report while other accessories continue updating.
+
 ## [0.4.6] - 2026-10-01
 
 ### Fixed
