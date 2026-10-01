@@ -22,6 +22,9 @@ from .const import CONF_ACCOUNT, UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
+_ACCESSORY_FETCH_TIMEOUT = 45
+_MAX_CONCURRENT_FETCHES = 3
+
 
 def accessory_id(accessory: FindMyAccessory) -> str:
     """Return the stable identifier used by Home Assistant."""
@@ -64,24 +67,66 @@ class HAFindMyCoordinator(DataUpdateCoordinator[dict[str, LocationReport | None]
         self.last_poll_at: datetime | None = None
 
     async def _async_update_data(self) -> dict[str, LocationReport | None]:
+        """Fetch accessories independently so one slow Apple request cannot block all data."""
+        semaphore = asyncio.Semaphore(_MAX_CONCURRENT_FETCHES)
+
+        async def _fetch_one(
+            accessory: FindMyAccessory,
+        ) -> tuple[str, LocationReport | None, Exception | None]:
+            identifier = accessory_id(accessory)
+            try:
+                async with semaphore:
+                    async with asyncio.timeout(_ACCESSORY_FETCH_TIMEOUT):
+                        report = await self.account.fetch_location(accessory)
+                return identifier, report, None
+            except (UnauthorizedError, InvalidStateError):
+                raise
+            except Exception as err:
+                return identifier, None, err
+
         try:
-            async with asyncio.timeout(60):
-                reports = await self.account.fetch_location(self.accessories)
+            rows = await asyncio.gather(
+                *(_fetch_one(accessory) for accessory in self.accessories)
+            )
         except (UnauthorizedError, InvalidStateError) as err:
-            raise ConfigEntryAuthFailed("Apple account authentication is no longer valid") from err
-        except TimeoutError as err:
-            raise UpdateFailed(
-                "Apple Find My location request timed out after 60 seconds"
+            raise ConfigEntryAuthFailed(
+                "Apple account authentication is no longer valid"
             ) from err
-        except Exception as err:
-            raise UpdateFailed(f"Unable to fetch Find My locations: {err}") from err
+
+        # Keep the last good value for an accessory whose current request failed.
+        previous = self.data or {}
+        result: dict[str, LocationReport | None] = dict(previous)
+        failures = 0
+
+        for identifier, report, error in rows:
+            if error is None:
+                result[identifier] = report
+                continue
+
+            failures += 1
+            if isinstance(error, TimeoutError):
+                _LOGGER.warning(
+                    "Apple Find My request for %s timed out after %s seconds; "
+                    "keeping the previous report",
+                    identifier,
+                    _ACCESSORY_FETCH_TIMEOUT,
+                )
+            else:
+                _LOGGER.warning(
+                    "Apple Find My request for %s failed: %s; keeping the previous report",
+                    identifier,
+                    error,
+                )
 
         self.last_poll_at = datetime.now(tz=UTC)
 
-        result: dict[str, LocationReport | None] = {}
-        for accessory, report in reports.items():
-            if isinstance(accessory, FindMyAccessory):
-                result[accessory_id(accessory)] = report
+        # If every accessory failed and there is no previous cloud data at all,
+        # report the coordinator update as failed. Otherwise publish the partial
+        # refresh so healthy accessories still update.
+        if self.accessories and failures == len(self.accessories) and not previous:
+            raise UpdateFailed(
+                "All Apple Find My accessory requests failed; will retry on the next refresh"
+            )
 
         # FindMy.py can refresh session state while talking to Apple. Persist the newest session,
         # but never persist the password.

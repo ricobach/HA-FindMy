@@ -16,7 +16,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from ._entity import battery_percent, build_device_info
+from ._entity import build_device_info
 from .bermuda_bridge import async_register_bermuda_source
 from .const import DOMAIN, signal_local_observation
 from .coordinator import HAFindMyCoordinator, accessory_id
@@ -95,11 +95,6 @@ class HAFindMyTracker(CoordinatorEntity[HAFindMyCoordinator], TrackerEntity):
     @property
     def location_accuracy(self) -> float:
         return float(self.report.horizontal_accuracy) if self.report else 0.0
-
-    @property
-    def battery_level(self) -> int | None:
-        from ._entity import latest_status
-        return battery_percent(latest_status(self.runtime, self.accessory))
 
     @cached_property
     def device_info(self):

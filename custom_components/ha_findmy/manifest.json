@@ -15,5 +15,5 @@
   "requirements": [
     "FindMy@git+https://github.com/parawanderer/FindMy.py.git@7969003ca785658369b650f75d9e7ca519566bf6"
   ],
-  "version": "0.4.5"
+  "version": "0.4.6"
 }

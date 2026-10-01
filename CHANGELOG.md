@@ -2,6 +2,14 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.6] - 2026-10-01
+
+### Fixed
+- Apple Find My polling now fetches rolling-key accessories with bounded concurrency instead of relying on FindMy.py's sequential multi-accessory loop.
+- Each accessory has its own 45-second request timeout, so one slow accessory no longer blocks every other location update.
+- Partial refreshes preserve the previous good report for accessories whose current Apple request fails or times out.
+- Removed the deprecated device-tracker `battery_level` property; battery remains available through the dedicated battery sensor.
+
 ## [0.4.5] - 2026-10-01
 
 ### Fixed
