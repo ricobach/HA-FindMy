@@ -2,6 +2,13 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.8] - 2026-10-01
+
+### Fixed
+- Eliminated a possible config-entry reload loop by reloading only when Home Assistant options actually change.
+- Apple session-state updates to config-entry data no longer participate in reload decisions.
+- Removed calls to `async_set_updated_data()` from inside the coordinator's own active refresh, avoiding debouncer cancellation/rescheduling from within the refresh task itself.
+
 ## [0.4.7] - 2026-10-01
 
 ### Fixed

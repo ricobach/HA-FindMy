@@ -105,10 +105,6 @@ class HAFindMyCoordinator(DataUpdateCoordinator[dict[str, LocationReport | None]
             result[identifier] = report
             successes += 1
 
-            # Publish each successful accessory immediately instead of waiting for
-            # every accessory in the account to finish.
-            self.async_set_updated_data(dict(result))
-
         self.last_poll_at = datetime.now(tz=UTC)
 
         if self.accessories and successes == 0 and not previous:

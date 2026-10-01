@@ -101,28 +101,6 @@ def _remove_unselected_registry_entries(
         device_registry.async_remove_device(device_id)
 
 
-async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload only when the selected accessory options changed."""
-    runtime: HAFindMyRuntime | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if runtime is None:
-        return
-
-    configured_rows = _accessory_rows(entry)
-    configured_ids = {
-        row.get("identifier")
-        for row in configured_rows
-        if isinstance(row, dict) and row.get("identifier")
-    }
-    runtime_ids = {accessory_id(accessory) for accessory in runtime.accessories}
-
-    # Coordinator session-state persistence updates entry.data too. Do not reload
-    # for those updates; only a real accessory selection change needs a reload.
-    if configured_ids == runtime_ids:
-        return
-
-    await hass.config_entries.async_reload(entry.entry_id)
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up HA-FindMy from a config entry."""
     account = await _restore_account(hass, dict(entry.data[CONF_ACCOUNT]))
@@ -150,7 +128,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_register_accessories_with_bermuda(hass, accessories)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+
+    options_at_setup = dict(entry.options)
+
+    async def _async_options_updated(
+        hass: HomeAssistant,
+        updated_entry: ConfigEntry,
+    ) -> None:
+        """Reload only for a real options change, never for session-data persistence."""
+        if dict(updated_entry.options) == options_at_setup:
+            return
+        await hass.config_entries.async_reload(updated_entry.entry_id)
+
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     entry.async_create_background_task(
         hass,
