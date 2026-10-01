@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -64,9 +65,14 @@ class HAFindMyCoordinator(DataUpdateCoordinator[dict[str, LocationReport | None]
 
     async def _async_update_data(self) -> dict[str, LocationReport | None]:
         try:
-            reports = await self.account.fetch_location(self.accessories)
+            async with asyncio.timeout(60):
+                reports = await self.account.fetch_location(self.accessories)
         except (UnauthorizedError, InvalidStateError) as err:
             raise ConfigEntryAuthFailed("Apple account authentication is no longer valid") from err
+        except TimeoutError as err:
+            raise UpdateFailed(
+                "Apple Find My location request timed out after 60 seconds"
+            ) from err
         except Exception as err:
             raise UpdateFailed(f"Unable to fetch Find My locations: {err}") from err
 

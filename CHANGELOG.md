@@ -2,6 +2,14 @@
 
 All notable changes to HA-FindMy are documented here.
 
+## [0.4.5] - 2026-10-01
+
+### Fixed
+- Initial Apple Find My location polling no longer blocks Home Assistant config-entry setup/bootstrap.
+- Initial cloud refresh now runs as a config-entry background task after entities are loaded.
+- Apple location requests time out after 60 seconds instead of hanging indefinitely.
+- Config-entry update listener now ignores Apple session-state persistence and reloads only when selected accessory IDs change.
+
 ## [0.4.4] - 2026-10-01
 
 ### Fixed

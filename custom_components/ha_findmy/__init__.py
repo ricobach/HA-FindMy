@@ -102,7 +102,24 @@ def _remove_unselected_registry_entries(
 
 
 async def _async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload the integration after accessory options change."""
+    """Reload only when the selected accessory options changed."""
+    runtime: HAFindMyRuntime | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if runtime is None:
+        return
+
+    configured_rows = _accessory_rows(entry)
+    configured_ids = {
+        row.get("identifier")
+        for row in configured_rows
+        if isinstance(row, dict) and row.get("identifier")
+    }
+    runtime_ids = {accessory_id(accessory) for accessory in runtime.accessories}
+
+    # Coordinator session-state persistence updates entry.data too. Do not reload
+    # for those updates; only a real accessory selection change needs a reload.
+    if configured_ids == runtime_ids:
+        return
+
     await hass.config_entries.async_reload(entry.entry_id)
 
 
@@ -115,7 +132,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _remove_unselected_registry_entries(hass, entry, accessories)
 
     coordinator = HAFindMyCoordinator(hass, entry, account, accessories)
-    await coordinator.async_config_entry_first_refresh()
+    # Do not block config-entry setup on Apple's Find My report endpoint. It can
+    # legitimately take long enough for Home Assistant's bootstrap watchdog to
+    # cancel the whole integration. Entities can start with no cloud report and
+    # populate as soon as the background refresh completes.
+    coordinator.async_set_updated_data({})
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = HAFindMyRuntime(
         account=account,
@@ -130,6 +151,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
+
+    entry.async_create_background_task(
+        hass,
+        coordinator.async_request_refresh(),
+        f"{DOMAIN} initial Find My refresh",
+    )
     return True
 
 
